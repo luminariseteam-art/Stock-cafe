@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Stock Dashboard — Tienda de Café</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f7f5f0;
+    --surface: #ffffff;
+    --surface2: #f1ede6;
+    --border: rgba(0,0,0,0.09);
+    --text: #1a1714;
+    --text2: #6b6560;
+    --text3: #9e9890;
+    --green-bg: #eaf3de;
+    --green-text: #3b6d11;
+    --green-border: #97c459;
+    --amber-bg: #faeeda;
+    --amber-text: #854f0b;
+    --amber-border: #ef9f27;
+    --red-bg: #fcebeb;
+    --red-text: #a32d2d;
+    --red-border: #e24b4a;
+    --coffee: #6b3f1f;
+    --coffee-light: #c8956a;
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1714;
+      --surface: #242018;
+      --surface2: #2e2a24;
+      --border: rgba(255,255,255,0.09);
+      --text: #f0ebe3;
+      --text2: #a09890;
+      --text3: #6b6560;
+      --green-bg: #173404;
+      --green-text: #c0dd97;
+      --green-border: #3b6d11;
+      --amber-bg: #412402;
+      --amber-text: #fac775;
+      --amber-border: #854f0b;
+      --red-bg: #501313;
+      --red-text: #f7c1c1;
+      --red-border: #a32d2d;
+    }
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 0;
+  }
+
+  header {
+    background: var(--surface);
+    border-bottom: 0.5px solid var(--border);
+    padding: 16px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-icon {
+    width: 32px;
+    height: 32px;
+    background: var(--coffee);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+
+  .logo h1 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .logo span {
+    font-size: 12px;
+    color: var(--text2);
+    display: block;
+    font-weight: 400;
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .last-update {
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  .btn-refresh {
+    background: var(--coffee);
+    color: #fff;
+    border: none;
+    padding: 7px 14px;
+    border-radius: var(--radius-sm);
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: opacity 0.15s;
+  }
+  .btn-refresh:hover { opacity: 0.85; }
+  .btn-refresh.loading { opacity: 0.6; pointer-events: none; }
+
+  .spin { display: inline-block; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  main { padding: 20px 24px; max-width: 1200px; margin: 0 auto; }
+
+  /* Alert banner */
+  .alert-banner {
+    background: var(--red-bg);
+    border: 0.5px solid var(--red-border);
+    border-radius: var(--radius);
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    display: none;
+  }
+  .alert-banner.visible { display: flex; align-items: flex-start; gap: 12px; }
+  .alert-banner-icon { font-size: 18px; flex-shrink: 0; margin-top: 1px; }
+  .alert-banner-title { font-size: 14px; font-weight: 600; color: var(--red-text); margin-bottom: 4px; }
+  .alert-banner-items { font-size: 13px; color: var(--red-text); opacity: 0.85; }
+
+  /* KPI cards */
+  .kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+
+  .kpi-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+
+  .kpi-label {
+    font-size: 12px;
+    color: var(--text2);
+    margin-bottom: 6px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .kpi-value {
+    font-size: 28px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .kpi-sub {
+    font-size: 12px;
+    color: var(--text3);
+    margin-top: 4px;
+  }
+
+  .kpi-card.danger .kpi-value { color: var(--red-text); }
+  .kpi-card.warn .kpi-value { color: var(--amber-text); }
+
+  /* Section titles */
+  .section-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 12px;
+    margin-top: 24px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-badge {
+    background: var(--red-bg);
+    color: var(--red-text);
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 20px;
+    font-weight: 600;
+    letter-spacing: 0;
+    text-transform: none;
+  }
+
+  /* Product cards grid */
+  .products-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+  }
+
+  .product-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .product-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+
+  .product-card.status-ok::before { background: var(--green-border); }
+  .product-card.status-low::before { background: var(--amber-border); }
+  .product-card.status-critical::before { background: var(--red-border); }
+
+  .product-sku {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--text3);
+    letter-spacing: 0.08em;
+    margin-bottom: 4px;
+  }
+
+  .product-name {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 12px;
+    line-height: 1.3;
+  }
+
+  .product-stock {
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+
+  .product-unit {
+    font-size: 12px;
+    color: var(--text3);
+    font-weight: 400;
+  }
+
+  .product-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 0.5px solid var(--border);
+  }
+
+  .product-min {
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  .status-badge {
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+
+  .status-badge.ok {
+    background: var(--green-bg);
+    color: var(--green-text);
+  }
+
+  .status-badge.low {
+    background: var(--amber-bg);
+    color: var(--amber-text);
+  }
+
+  .status-badge.critical {
+    background: var(--red-bg);
+    color: var(--red-text);
+  }
+
+  /* Progress bar */
+  .progress-wrap {
+    margin-top: 10px;
+  }
+
+  .progress-bar {
+    height: 4px;
+    background: var(--surface2);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.4s ease;
+  }
+
+  .progress-fill.ok { background: var(--green-border); }
+  .progress-fill.low { background: var(--amber-border); }
+  .progress-fill.critical { background: var(--red-border); }
+
+  /* Full table */
+  .table-wrap {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    margin-top: 8px;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  thead tr {
+    background: var(--surface2);
+  }
+
+  th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 0.5px solid var(--border);
+  }
+
+  td {
+    padding: 10px 14px;
+    border-bottom: 0.5px solid var(--border);
+    color: var(--text);
+  }
+
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--surface2); }
+
+  td.num { font-variant-numeric: tabular-nums; text-align: right; font-weight: 500; }
+  td.diff-pos { color: var(--green-text); font-weight: 600; }
+  td.diff-neg { color: var(--red-text); font-weight: 600; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 16px;
+    border-bottom: 0.5px solid var(--border);
+    padding-bottom: 0;
+  }
+
+  .tab {
+    padding: 8px 16px;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text2);
+    cursor: pointer;
+    border: none;
+    background: none;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -0.5px;
+    transition: all 0.15s;
+  }
+
+  .tab:hover { color: var(--text); }
+
+  .tab.active {
+    color: var(--coffee);
+    border-bottom-color: var(--coffee);
+  }
+
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Filter bar */
+  .filter-bar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+  }
+
+  .filter-btn {
+    padding: 6px 14px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 0.5px solid var(--border);
+    border-radius: 20px;
+    background: var(--surface);
+    color: var(--text2);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .filter-btn:hover { border-color: var(--coffee); color: var(--coffee); }
+
+  .filter-btn.active {
+    background: var(--coffee);
+    color: #fff;
+    border-color: var(--coffee);
+  }
+
+  .empty {
+    text-align: center;
+    color: var(--text3);
+    padding: 40px;
+    font-size: 14px;
+  }
+
+  @media (max-width: 600px) {
+    main { padding: 16px; }
+    header { padding: 12px 16px; }
+    .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+    .products-grid { grid-template-columns: 1fr 1fr; }
+    .kpi-value { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">☕</div>
+    <div>
+      <h1>Stock Dashboard</h1>
+      <span>Tienda de Café</span>
+    </div>
+  </div>
+  <div class="header-actions">
+    <span class="last-update" id="lastUpdate">Cargando...</span>
+    <button class="btn-refresh" id="btnRefresh" onclick="loadData()">
+      <span id="refreshIcon">↻</span> Actualizar
+    </button>
+  </div>
+</header>
+
+<main>
+
+  <div class="alert-banner" id="alertBanner">
+    <div class="alert-banner-icon">⚠</div>
+    <div>
+      <div class="alert-banner-title" id="alertTitle"></div>
+      <div class="alert-banner-items" id="alertItems"></div>
+    </div>
+  </div>
+
+  <!-- KPIs -->
+  <div class="kpi-grid" id="kpiGrid">
+    <div class="kpi-card"><div class="kpi-label">Total Productos</div><div class="kpi-value">—</div></div>
+    <div class="kpi-card danger"><div class="kpi-label">Stock Crítico</div><div class="kpi-value">—</div></div>
+    <div class="kpi-card warn"><div class="kpi-label">Stock Bajo</div><div class="kpi-value">—</div></div>
+    <div class="kpi-card"><div class="kpi-label">Stock OK</div><div class="kpi-value">—</div></div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('cafes', this)">☕ Cafés</button>
+    <button class="tab" onclick="switchTab('capsulas', this)">💊 Cápsulas</button>
+    <button class="tab" onclick="switchTab('tes', this)">🍵 Tés</button>
+    <button class="tab" onclick="switchTab('todos', this)">📋 Todos</button>
+  </div>
+
+  <!-- Cafés panel -->
+  <div class="tab-panel active" id="panel-cafes">
+    <div class="products-grid" id="grid-cafes"></div>
+  </div>
+
+  <!-- Cápsulas panel -->
+  <div class="tab-panel" id="panel-capsulas">
+    <div class="products-grid" id="grid-capsulas"></div>
+  </div>
+
+  <!-- Tés panel -->
+  <div class="tab-panel" id="panel-tes">
+    <div class="products-grid" id="grid-tes"></div>
+  </div>
+
+  <!-- Todos panel -->
+  <div class="tab-panel" id="panel-todos">
+    <div class="filter-bar" id="filterBar">
+      <button class="filter-btn active" onclick="filterTable('all', this)">Todos</button>
+      <button class="filter-btn" onclick="filterTable('critical', this)">⚠ Crítico</button>
+      <button class="filter-btn" onclick="filterTable('low', this)">↓ Bajo</button>
+      <button class="filter-btn" onclick="filterTable('ok', this)">✓ OK</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>SKU</th>
+            <th>Producto</th>
+            <th style="text-align:right">Stock Actual</th>
+            <th style="text-align:right">Mínimo</th>
+            <th style="text-align:right">Diferencia</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</main>
+
+<script>
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQqdGwniYngP1TO_sF3MJAunLRrJGIqYEpXSAFz-8WdbLW6bBcDKgVbo0oQkccEn1Sw03ZpVMunuFjx/pub?gid=1435082045&single=true&output=csv';
+
+let allProducts = [];
+let currentFilter = 'all';
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g,''));
+  return lines.slice(1).map(line => {
+    const cols = [];
+    let cur = '', inQ = false;
+    for (let c of line) {
+      if (c === '"') { inQ = !inQ; continue; }
+      if (c === ',' && !inQ) { cols.push(cur.trim()); cur = ''; continue; }
+      cur += c;
+    }
+    cols.push(cur.trim());
+    const obj = {};
+    headers.forEach((h, i) => obj[h] = (cols[i] || '').replace(/^"|"$/g,'').trim());
+    return obj;
+  }).filter(r => r[headers[0]]);
+}
+
+function parseNum(val) {
+  if (!val) return 0;
+  return parseFloat(val.replace(/\./g,'').replace(',','.')) || 0;
+}
+
+function getStatus(actual, min) {
+  const ratio = min > 0 ? actual / min : 99;
+  if (actual <= 0) return 'critical';
+  if (ratio <= 1.0) return 'critical';
+  if (ratio <= 1.5) return 'low';
+  return 'ok';
+}
+
+function getCategory(sku) {
+  const s = sku.toUpperCase();
+  if (s.startsWith('CAPS')) return 'capsulas';
+  if (s.startsWith('TE_')) return 'tes';
+  return 'cafes';
+}
+
+function statusLabel(s) {
+  if (s === 'critical') return ['⚠ Crítico', 'critical'];
+  if (s === 'low') return ['↓ Bajo', 'low'];
+  return ['✓ OK', 'ok'];
+}
+
+function progressPct(actual, min) {
+  if (min <= 0) return 100;
+  return Math.min(100, Math.round((actual / (min * 3)) * 100));
+}
+
+function renderCard(p) {
+  const status = getStatus(p.actual, p.min);
+  const [label, cls] = statusLabel(status);
+  const pct = progressPct(p.actual, p.min);
+  const diff = p.actual - p.min;
+
+  return `
+  <div class="product-card status-${status}">
+    <div class="product-sku">${p.sku}</div>
+    <div class="product-name">${p.name}</div>
+    <div class="product-stock">${p.actual.toLocaleString('es-AR')}<span class="product-unit"> uds</span></div>
+    <div class="progress-wrap">
+      <div class="progress-bar"><div class="progress-fill ${cls}" style="width:${pct}%"></div></div>
+    </div>
+    <div class="product-footer">
+      <div class="product-min">Mín: ${p.min.toLocaleString('es-AR')}</div>
+      <div class="status-badge ${cls}">${label}</div>
+    </div>
+  </div>`;
+}
+
+function renderGrid(id, products) {
+  const el = document.getElementById(id);
+  if (!products.length) {
+    el.innerHTML = '<div class="empty">Sin productos en esta categoría</div>';
+    return;
+  }
+  el.innerHTML = products.map(renderCard).join('');
+}
+
+function renderTable(filter) {
+  const tbody = document.getElementById('tableBody');
+  let data = allProducts;
+  if (filter === 'critical') data = data.filter(p => getStatus(p.actual, p.min) === 'critical');
+  else if (filter === 'low') data = data.filter(p => getStatus(p.actual, p.min) === 'low');
+  else if (filter === 'ok') data = data.filter(p => getStatus(p.actual, p.min) === 'ok');
+
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="6" class="empty">Sin resultados</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map(p => {
+    const status = getStatus(p.actual, p.min);
+    const [label, cls] = statusLabel(status);
+    const diff = p.actual - p.min;
+    return `<tr>
+      <td style="font-size:11px;color:var(--text3);font-weight:600;letter-spacing:.05em">${p.sku}</td>
+      <td style="font-weight:500">${p.name}</td>
+      <td class="num">${p.actual.toLocaleString('es-AR')}</td>
+      <td class="num" style="color:var(--text3)">${p.min.toLocaleString('es-AR')}</td>
+      <td class="num ${diff >= 0 ? 'diff-pos' : 'diff-neg'}">${diff >= 0 ? '+' : ''}${diff.toLocaleString('es-AR')}</td>
+      <td><span class="status-badge ${cls}">${label}</span></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderKPIs(products) {
+  const critical = products.filter(p => getStatus(p.actual, p.min) === 'critical').length;
+  const low = products.filter(p => getStatus(p.actual, p.min) === 'low').length;
+  const ok = products.filter(p => getStatus(p.actual, p.min) === 'ok').length;
+
+  document.getElementById('kpiGrid').innerHTML = `
+    <div class="kpi-card"><div class="kpi-label">Total Productos</div><div class="kpi-value">${products.length}</div><div class="kpi-sub">en inventario</div></div>
+    <div class="kpi-card danger"><div class="kpi-label">Stock Crítico</div><div class="kpi-value">${critical}</div><div class="kpi-sub">requieren reposición</div></div>
+    <div class="kpi-card warn"><div class="kpi-label">Stock Bajo</div><div class="kpi-value">${low}</div><div class="kpi-sub">por debajo del óptimo</div></div>
+    <div class="kpi-card"><div class="kpi-label">Stock OK</div><div class="kpi-value">${ok}</div><div class="kpi-sub">sin alertas</div></div>
+  `;
+
+  const alertBanner = document.getElementById('alertBanner');
+  const criticalItems = products.filter(p => getStatus(p.actual, p.min) === 'critical');
+  if (criticalItems.length > 0) {
+    alertBanner.classList.add('visible');
+    document.getElementById('alertTitle').textContent = `${criticalItems.length} producto${criticalItems.length > 1 ? 's' : ''} con stock crítico`;
+    document.getElementById('alertItems').textContent = criticalItems.map(p => p.name).join(' · ');
+  } else {
+    alertBanner.classList.remove('visible');
+  }
+}
+
+async function loadData() {
+  const btn = document.getElementById('btnRefresh');
+  const icon = document.getElementById('refreshIcon');
+  btn.classList.add('loading');
+  icon.className = 'spin';
+  icon.textContent = '↻';
+
+  try {
+    const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(CSV_URL)}`;
+    const res = await fetch(proxyUrl);
+    const json = await res.json();
+    const text = json.contents;
+
+    const rows = parseCSV(text);
+    allProducts = rows.map(r => {
+      const keys = Object.keys(r);
+      return {
+        sku: r[keys[0]] || r['SKU'] || '',
+        name: r[keys[1]] || r['Nombre_Producto'] || r['NombreProducto'] || '',
+        actual: parseNum(r[keys[2]] || r['Stock_Actual'] || '0'),
+        min: parseNum(r[keys[3]] || r['Stock_Minimo'] || '0'),
+      };
+    }).filter(p => p.sku && p.name);
+
+    renderKPIs(allProducts);
+    renderGrid('grid-cafes', allProducts.filter(p => getCategory(p.sku) === 'cafes'));
+    renderGrid('grid-capsulas', allProducts.filter(p => getCategory(p.sku) === 'capsulas'));
+    renderGrid('grid-tes', allProducts.filter(p => getCategory(p.sku) === 'tes'));
+    renderTable(currentFilter);
+
+    const now = new Date();
+    document.getElementById('lastUpdate').textContent = `Actualizado ${now.toLocaleTimeString('es-AR', {hour:'2-digit', minute:'2-digit'})}`;
+  } catch (e) {
+    document.getElementById('lastUpdate').textContent = 'Error al cargar datos';
+    console.error(e);
+    loadFallback();
+  } finally {
+    btn.classList.remove('loading');
+    icon.className = '';
+    icon.textContent = '↻';
+  }
+}
+
+function loadFallback() {
+  const fallback = [
+    {sku:'BARISTA', name:'Café Barista', actual:30150, min:5000},
+    {sku:'MINKA', name:'Café Minka', actual:1500, min:1000},
+    {sku:'SCEGLIERE', name:'Café Scegliere', actual:2750, min:750},
+    {sku:'BRASIL', name:'Café Brasil', actual:2750, min:750},
+    {sku:'COLOMBIA', name:'Café Colombia', actual:1250, min:750},
+    {sku:'DESCAF', name:'Café Descafeinado', actual:2732, min:500},
+    {sku:'CAPS_BARISTA', name:'Cápsula Barista', actual:5, min:2},
+    {sku:'CAPS_SCEGLIERE', name:'Cápsula Scegliere', actual:5, min:2},
+    {sku:'CAPS_COLOMBIA', name:'Cápsula Colombia', actual:4, min:2},
+    {sku:'CAPS_MINKA', name:'Cápsula Minka', actual:5, min:2},
+    {sku:'TE_BOSTON', name:'Te Boston', actual:53, min:15},
+    {sku:'TE_BOLDO', name:'Te Boldo', actual:85, min:10},
+    {sku:'TE_VERDE', name:'Te Verde', actual:14, min:10},
+    {sku:'TE_MANZANILLA', name:'Cachamai Manzanilla', actual:14, min:10},
+    {sku:'TE_NATURA', name:'Te Natura', actual:35, min:10},
+    {sku:'TE_HIERBAS', name:'Cachamai Hierbas', actual:34, min:10},
+    {sku:'TE_BERRIES', name:'Tehani Berries', actual:246, min:60},
+    {sku:'TE_EARLGREY', name:'Tehani Earl Grey', actual:249, min:60},
+    {sku:'TE_HIBISCUS', name:'Tehani Hibiscus', actual:238, min:60},
+  ];
+  allProducts = fallback;
+  renderKPIs(allProducts);
+  renderGrid('grid-cafes', allProducts.filter(p => getCategory(p.sku) === 'cafes'));
+  renderGrid('grid-capsulas', allProducts.filter(p => getCategory(p.sku) === 'capsulas'));
+  renderGrid('grid-tes', allProducts.filter(p => getCategory(p.sku) === 'tes'));
+  renderTable(currentFilter);
+  document.getElementById('lastUpdate').textContent = 'Datos de ejemplo (sin conexión)';
+}
+
+function switchTab(tab, el) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  el.classList.add('active');
+  document.getElementById('panel-' + tab).classList.add('active');
+}
+
+function filterTable(filter, el) {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  currentFilter = filter;
+  renderTable(filter);
+}
+
+loadData();
+</script>
+</body>
+</html>
