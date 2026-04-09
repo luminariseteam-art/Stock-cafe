@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stock Real — Cafetería</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f0f2f5; color: #111827; min-height: 100vh; }
+
+    header { background: #fff; border-bottom: 1px solid #e5e7eb; padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 10; }
+    .header-left { display: flex; align-items: center; gap: 12px; }
+    .logo { width: 36px; height: 36px; background: #3B6D11; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; }
+    header h1 { font-size: 16px; font-weight: 600; }
+    header .sub { font-size: 12px; color: #6b7280; margin-top: 1px; }
+    #status-indicator { display: flex; align-items: center; gap: 6px; font-size: 12px; color: #6b7280; }
+    #dot { width: 8px; height: 8px; border-radius: 50%; background: #3B6D11; animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    main { padding: 20px 24px; max-width: 1100px; margin: 0 auto; }
+
+    .stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .stat { background: #fff; border-radius: 10px; padding: 16px 18px; border: 1px solid #e5e7eb; }
+    .stat .lbl { font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+    .stat .val { font-size: 28px; font-weight: 700; }
+    .val-total { color: #111827; }
+    .val-ok    { color: #3B6D11; }
+    .val-bajo  { color: #BA7517; }
+    .val-crit  { color: #A32D2D; }
+
+    .filters { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .filter-btn { font-size: 12px; padding: 5px 14px; border-radius: 20px; border: 1px solid #d1d5db; background: #fff; color: #6b7280; cursor: pointer; transition: all .15s; }
+    .filter-btn:hover { border-color: #9ca3af; color: #374151; }
+    .filter-btn.active { background: #EAF3DE; color: #27500A; border-color: #3B6D11; }
+    .filter-btn.warn.active { background: #FAEEDA; color: #633806; border-color: #BA7517; }
+
+    .card { background: #fff; border-radius: 12px; border: 1px solid #e5e7eb; overflow: hidden; }
+    .card-head { padding: 14px 18px; border-bottom: 1px solid #f3f4f6; display: flex; align-items: center; justify-content: space-between; }
+    .card-head h2 { font-size: 14px; font-weight: 600; }
+    .card-head span { font-size: 12px; color: #9ca3af; }
+
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+    thead th { background: #f9fafb; padding: 9px 14px; text-align: left; font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: .04em; border-bottom: 1px solid #e5e7eb; white-space: nowrap; }
+    thead th.right { text-align: right; }
+    tbody tr { border-bottom: 1px solid #f3f4f6; transition: background .1s; }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #fafafa; }
+    tbody td { padding: 10px 14px; }
+    tbody td.right { text-align: right; font-variant-numeric: tabular-nums; }
+
+    .sku-cell { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 11px; color: #9ca3af; }
+    .product-name { font-weight: 500; color: #111827; }
+    .cat-tag { font-size: 11px; background: #f3f4f6; color: #6b7280; padding: 2px 7px; border-radius: 4px; }
+
+    .badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; white-space: nowrap; }
+    .badge.ok      { background: #EAF3DE; color: #27500A; }
+    .badge.bajo    { background: #FAEEDA; color: #633806; }
+    .badge.critico { background: #FCEBEB; color: #791F1F; }
+
+    .dot-s { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+    .dot-s.ok      { background: #3B6D11; }
+    .dot-s.bajo    { background: #BA7517; }
+    .dot-s.critico { background: #E24B4A; }
+
+    .bar-wrap { height: 5px; background: #f3f4f6; border-radius: 3px; width: 80px; display: inline-block; vertical-align: middle; }
+    .bar-fill { height: 5px; border-radius: 3px; }
+
+    #error-msg { display: none; background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 13px; }
+    #no-results { text-align: center; color: #9ca3af; padding: 32px; font-size: 13px; }
+
+    @media (max-width: 640px) {
+      .stats { grid-template-columns: repeat(2, 1fr); }
+      main { padding: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo">☕</div>
+    <div>
+      <h1>Stock Real — Cafetería</h1>
+      <div class="sub" id="subtitle">Cargando...</div>
+    </div>
+  </div>
+  <div id="status-indicator">
+    <span id="dot"></span>
+    <span id="last-update">–</span>
+  </div>
+</header>
+
+<main>
+  <div id="error-msg"></div>
+
+  <div class="stats">
+    <div class="stat"><div class="lbl">Total productos</div><div class="val val-total" id="sc-total">–</div></div>
+    <div class="stat"><div class="lbl">Estado OK</div><div class="val val-ok" id="sc-ok">–</div></div>
+    <div class="stat"><div class="lbl">Stock bajo</div><div class="val val-bajo" id="sc-bajo">–</div></div>
+    <div class="stat"><div class="lbl">Crítico</div><div class="val val-crit" id="sc-crit">–</div></div>
+  </div>
+
+  <div class="filters">
+    <button class="filter-btn active" onclick="setFilter('todos',this)">Todos</button>
+    <button class="filter-btn"        onclick="setFilter('cafe',this)">Cafés</button>
+    <button class="filter-btn"        onclick="setFilter('capsulas',this)">Cápsulas</button>
+    <button class="filter-btn"        onclick="setFilter('te',this)">Tés</button>
+    <button class="filter-btn warn"   onclick="setFilter('alerta',this)">Solo alertas</button>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <h2 id="table-title">Todos los productos</h2>
+      <span id="showing">–</span>
+    </div>
+    <div class="table-scroll">
+      <div id="no-results" style="display:none">Sin resultados para este filtro.</div>
+      <table id="main-table">
+        <thead>
+          <tr>
+            <th style="width:120px">SKU</th>
+            <th style="width:175px">Producto</th>
+            <th style="width:80px">Categoría</th>
+            <th class="right" style="width:110px">Stock actual</th>
+            <th class="right" style="width:95px">Mínimo</th>
+            <th class="right" style="width:95px">Diferencia</th>
+            <th style="width:100px">Nivel</th>
+            <th style="width:100px">Estado</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+  </div>
+</main>
+
+<script>
+  // =====================================================
+  // ✏️  PEGÁ TU SHEET ID AQUÍ para sincronización en vivo
+  // URL del sheet: https://docs.google.com/spreadsheets/d/ESTE_ID/edit
+  const SHEET_ID = "13OHHTp3Pb6nvC0_PHpvlioyGw2_vZtazkgfln6tNZug";
+  const SHEET_NAME = "Stock Real - Cafetería";
+  const REFRESH_SECONDS = 30;
+  // =====================================================
+
+  const DATOS_DEFAULT = [
+    {sku:"BARISTA",        nombre:"Café Barista",       cat:"cafe",     actual:30150, min:5000},
+    {sku:"MINKA",          nombre:"Café Minka",         cat:"cafe",     actual:1500,  min:1000},
+    {sku:"SCEGLIERE",      nombre:"Café Scegliere",     cat:"cafe",     actual:2750,  min:750},
+    {sku:"BRASIL",         nombre:"Café Brasil",        cat:"cafe",     actual:2750,  min:750},
+    {sku:"COLOMBIA",       nombre:"Café Colombia",      cat:"cafe",     actual:1250,  min:750},
+    {sku:"DESCAF",         nombre:"Café Descafeinado",  cat:"cafe",     actual:2732,  min:500},
+    {sku:"CAPS_BARISTA",   nombre:"Cápsula Barista",    cat:"capsulas", actual:5,     min:2},
+    {sku:"CAPS_SCEGLIERE", nombre:"Cápsula Scegliere",  cat:"capsulas", actual:5,     min:2},
+    {sku:"CAPS_COLOMBIA",  nombre:"Cápsula Colombia",   cat:"capsulas", actual:5,     min:2},
+    {sku:"CAPS_MINKA",     nombre:"Cápsula Minka",      cat:"capsulas", actual:4,     min:2},
+    {sku:"TE_BOSTON",      nombre:"Té Boston",          cat:"te",       actual:53,    min:15},
+    {sku:"TE_BOLDO",       nombre:"Té Boldo",           cat:"te",       actual:85,    min:10},
+    {sku:"TE_VERDE",       nombre:"Té Verde",           cat:"te",       actual:14,    min:10},
+    {sku:"TE_MANZANILLA",  nombre:"Cachamai Manzanilla",cat:"te",       actual:14,    min:10},
+    {sku:"TE_NATURA",      nombre:"Té Natura",          cat:"te",       actual:35,    min:10},
+    {sku:"TE_HIERBAS",     nombre:"Cachamai Hierbas",   cat:"te",       actual:34,    min:10},
+    {sku:"TE_BERRIES",     nombre:"Tehani Berries",     cat:"te",       actual:246,   min:60},
+    {sku:"TE_EARLGREY",    nombre:"Tehani Earl Grey",   cat:"te",       actual:249,   min:60},
+    {sku:"TE_HIBISCUS",    nombre:"Tehani Hibiscus",    cat:"te",       actual:238,   min:60},
+  ];
+
+  let allData = [];
+  let currentFilter = "todos";
+  let usingSheet = false;
+
+  function inferCat(nombre) {
+    const n = (nombre || "").toLowerCase();
+    if (n.includes("cápsula") || n.includes("capsula") || n.includes("caps")) return "capsulas";
+    if (n.includes("tehani") || n.includes("cachamai") || n.includes("té ") ||
+        n.includes("te ") || n.startsWith("te_") || n.includes("boston") ||
+        n.includes("boldo") || n.includes("verde") || n.includes("manzanilla") ||
+        n.includes("natura") || n.includes("hierbas") || n.includes("berries") ||
+        n.includes("earl") || n.includes("hibiscus")) return "te";
+    return "cafe";
+  }
+
+  function getEstado(actual, min) {
+    if (!min) return "ok";
+    const r = actual / min;
+    if (r < 1)   return "critico";
+    if (r < 1.5) return "bajo";
+    return "ok";
+  }
+
+  function estadoLabel(e) { return {ok:"OK", bajo:"Bajo", critico:"Crítico"}[e]; }
+  function catLabel(c)    { return {cafe:"Café", capsulas:"Cápsula", te:"Té"}[c] || c; }
+
+  function barPct(actual, min) {
+    if (!min) return 100;
+    return Math.min(100, Math.round((actual / (min * 2)) * 100));
+  }
+
+  function barColor(e) { return {ok:"#3B6D11", bajo:"#BA7517", critico:"#E24B4A"}[e]; }
+
+  function parseCSV(text) {
+    const rows = [];
+    for (const line of text.trim().split(/\r?\n/).filter(l => l.trim())) {
+      const cols = []; let cur = "", inQ = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') { inQ = !inQ; }
+        else if (c === ',' && !inQ) { cols.push(cur.trim().replace(/^"|"$/g,"")); cur = ""; }
+        else { cur += c; }
+      }
+      cols.push(cur.trim().replace(/^"|"$/g,""));
+      rows.push(cols);
+    }
+    return rows;
+  }
+
+  function parseNum(s) {
+    if (!s) return 0;
+    return parseFloat(s.replace(/\./g,"").replace(",",".")) || 0;
+  }
+
+  async function fetchSheet() {
+    const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv&gid=1435082045&t=${Date.now()}`;
+    const res = await fetch(url);
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    const rows = parseCSV(await res.text());
+    if (rows.length < 2) throw new Error("Hoja vacía.");
+    const headers = rows[0].map(h => h.toLowerCase());
+    const i = {
+      sku:    headers.findIndex(h => h.includes("sku")),
+      nombre: headers.findIndex(h => h.includes("nombre") || h.includes("product")),
+      actual: headers.findIndex(h => h.includes("actual")),
+      min:    headers.findIndex(h => h.includes("min")),
+    };
+    return rows.slice(1).map(r => {
+      const nombre = r[i.nombre >= 0 ? i.nombre : 1] || "";
+      return {
+        sku:    r[i.sku >= 0 ? i.sku : 0] || "",
+        nombre: nombre,
+        cat:    inferCat(nombre),
+        actual: parseNum(r[i.actual >= 0 ? i.actual : 2]),
+        min:    parseNum(r[i.min    >= 0 ? i.min    : 3]),
+      };
+    }).filter(p => p.nombre);
+  }
+
+  function render() {
+    const enriched = allData.map(p => ({...p, estado: getEstado(p.actual, p.min), diff: p.actual - p.min}));
+    const filtered = enriched.filter(p => {
+      if (currentFilter === "todos")  return true;
+      if (currentFilter === "alerta") return p.estado !== "ok";
+      return p.cat === currentFilter;
+    });
+
+    const tbody   = document.getElementById("tbody");
+    const noRes   = document.getElementById("no-results");
+    const tbl     = document.getElementById("main-table");
+
+    if (!filtered.length) {
+      tbody.innerHTML = "";
+      noRes.style.display = "block";
+      tbl.style.display   = "none";
+    } else {
+      noRes.style.display = "none";
+      tbl.style.display   = "table";
+      tbody.innerHTML = filtered.map(p => {
+        const dc = p.diff >= 0 ? "#27500A" : "#A32D2D";
+        const ds = (p.diff >= 0 ? "+" : "") + p.diff.toLocaleString("es-AR");
+        return `<tr>
+          <td class="sku-cell">${p.sku}</td>
+          <td class="product-name">${p.nombre}</td>
+          <td><span class="cat-tag">${catLabel(p.cat)}</span></td>
+          <td class="right" style="font-weight:600">${p.actual.toLocaleString("es-AR")}</td>
+          <td class="right" style="color:#6b7280">${p.min.toLocaleString("es-AR")}</td>
+          <td class="right" style="color:${dc};font-weight:600">${ds}</td>
+          <td><div class="bar-wrap"><div class="bar-fill" style="width:${barPct(p.actual,p.min)}%;background:${barColor(p.estado)}"></div></div></td>
+          <td><span class="badge ${p.estado}"><span class="dot-s ${p.estado}"></span>${estadoLabel(p.estado)}</span></td>
+        </tr>`;
+      }).join("");
+    }
+
+    const okCnt   = enriched.filter(p => p.estado === "ok").length;
+    const bajoCnt = enriched.filter(p => p.estado === "bajo").length;
+    const critCnt = enriched.filter(p => p.estado === "critico").length;
+
+    document.getElementById("sc-total").textContent = enriched.length;
+    document.getElementById("sc-ok").textContent    = okCnt;
+    document.getElementById("sc-bajo").textContent  = bajoCnt;
+    document.getElementById("sc-crit").textContent  = critCnt;
+    document.getElementById("showing").textContent  = filtered.length + " productos";
+    document.getElementById("subtitle").textContent = enriched.length + " productos · " + (usingSheet ? "Google Sheets en vivo" : "datos locales");
+    document.getElementById("last-update").textContent = "Actualizado " + new Date().toLocaleTimeString("es-AR");
+    document.getElementById("dot").style.background = critCnt > 0 ? "#E24B4A" : "#3B6D11";
+
+    const titles = {todos:"Todos los productos", cafe:"Cafés", capsulas:"Cápsulas", te:"Tés", alerta:"Productos con alerta de stock"};
+    document.getElementById("table-title").textContent = titles[currentFilter];
+  }
+
+  function setFilter(f, btn) {
+    currentFilter = f;
+    document.querySelectorAll(".filter-btn").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    render();
+  }
+
+  function showError(msg) {
+    const el = document.getElementById("error-msg");
+    el.style.display = "block";
+    el.innerHTML = `<strong>No se pudo conectar con Google Sheets:</strong> ${msg}<br>
+      <small>Mostrando datos locales. Verificá que el sheet sea público: <em>Archivo → Compartir → Cualquiera con el enlace puede ver</em></small>`;
+  }
+
+  async function init() {
+    allData = DATOS_DEFAULT;
+    render();
+    if (!SHEET_ID) return;
+    try {
+      allData = await fetchSheet();
+      usingSheet = true;
+      render();
+      document.getElementById("error-msg").style.display = "none";
+    } catch(e) { showError(e.message); }
+
+    setInterval(async () => {
+      try {
+        allData = await fetchSheet();
+        usingSheet = true;
+        render();
+      } catch(e) {}
+    }, REFRESH_SECONDS * 1000);
+  }
+
+  init();
+</script>
+</body>
+</html>
